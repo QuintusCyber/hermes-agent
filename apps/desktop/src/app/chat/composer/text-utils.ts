@@ -6,7 +6,10 @@ export interface TriggerState {
   tokenLength: number
 }
 
-const TRIGGER_RE = /(?:^|[\s])([@/])([^\s@/]*)$/
+// Slash commands only trigger autocomplete at the start of the input;
+// @ mentions can appear mid-sentence after whitespace.
+const SLASH_TRIGGER_RE = /^\/([^\s@/]*)$/
+const AT_TRIGGER_RE = /(?:^|[\s])@([^\s@/]*)$/
 
 /**
  * Keys that the open-trigger keydown handler fully consumes to drive the
@@ -100,11 +103,17 @@ export function textBeforeCaret(editor: HTMLDivElement): string | null {
 }
 
 export function detectTrigger(textBefore: string): TriggerState | null {
-  const match = TRIGGER_RE.exec(textBefore)
+  const slashMatch = SLASH_TRIGGER_RE.exec(textBefore)
 
-  if (!match) {
-    return null
+  if (slashMatch) {
+    return { kind: '/', query: slashMatch[1], tokenLength: 1 + slashMatch[1].length }
   }
 
-  return { kind: match[1] as '@' | '/', query: match[2], tokenLength: 1 + match[2].length }
+  const atMatch = AT_TRIGGER_RE.exec(textBefore)
+
+  if (atMatch) {
+    return { kind: '@', query: atMatch[1], tokenLength: 1 + atMatch[1].length }
+  }
+
+  return null
 }

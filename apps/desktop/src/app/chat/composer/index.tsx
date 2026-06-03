@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useResizeObserver } from '@/hooks/use-resize-observer'
 import { chatMessageText } from '@/lib/chat-messages'
+import { SLASH_COMMAND_RE } from '@/lib/chat-runtime'
 import { DATA_IMAGE_URL_RE } from '@/lib/embedded-images'
 import { triggerHaptic } from '@/lib/haptics'
 import { cn } from '@/lib/utils'
@@ -896,8 +897,16 @@ export function ChatBar({
   }, [activeQueueSessionKey, editingQueuedPrompt, queueEdit]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const submitDraft = () => {
+    const trimmedDraft = draft.trim()
+
     if (queueEdit) {
       exitQueuedEdit('save')
+    } else if (trimmedDraft && SLASH_COMMAND_RE.test(trimmedDraft) && !attachments.length) {
+      // Slash commands are dispatched immediately (via onSubmit →
+      // executeSlashCommand), never queued — even when busy.
+      triggerHaptic('submit')
+      clearDraft()
+      void onSubmit(trimmedDraft)
     } else if (busy) {
       if (hasComposerPayload) {
         queueCurrentDraft()
@@ -909,7 +918,7 @@ export function ChatBar({
       }
     } else if (!hasComposerPayload && queuedPrompts.length > 0) {
       void drainNextQueued()
-    } else if (draft.trim() || attachments.length > 0) {
+    } else if (trimmedDraft || attachments.length > 0) {
       const submitted = draft
       triggerHaptic('submit')
       clearDraft()
